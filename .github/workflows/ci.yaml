@@ -58,6 +58,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Trust self-signed cert for private registry
+      run: |
+        sudo mkdir -p /etc/docker/certs.d/172.25.188.203:5000
+        echo "${{ secrets.REGISTRY_CRT }}" | sudo tee /etc/docker/certs.d/172.25.188.203:5000/ca.crt > /dev/null
+        sudo systemctl restart docker
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
 
