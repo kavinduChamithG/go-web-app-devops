@@ -15,7 +15,7 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
     - name: Checkout repository
@@ -33,7 +33,7 @@ jobs:
       run: go test ./...
   
   code-quality:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
     - name: Checkout repository
@@ -45,7 +45,7 @@ jobs:
         version: latest
   
   push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     needs: build
 
@@ -72,7 +72,7 @@ jobs:
         tags: 172.25.188.203:5000/go-web-app:${{github.run_id}}
 
   update-newtag-in-helm-chart:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     needs: push
 
@@ -88,8 +88,8 @@ jobs:
 
     - name: Commit and push changes
       run: |
-        git config --global user.email "abhishek@gmail.com"
-        git config --global user.name "Abhishek Veeramalla"
+        git config --global user.email "gunawardhana.edu@gmail.com"
+        git config --global user.name "kavinduChamithG"
         git add helm/go-web-app-chart/values.yaml
         git commit -m "Update tag in Helm chart"
         git push
