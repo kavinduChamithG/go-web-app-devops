@@ -80,27 +80,42 @@ jobs:
 #        docker buildx create --name hostbuilder --driver docker --use
 #        docker buildx inspect --bootstrap
 
-    - name: Select or create host buildx builder (robust)
+    - name: Select or create host buildx builder (sanitized)
       run: |
         set -euo pipefail
 
         echo "Listing existing buildx builders for debugging:"
         docker buildx ls || true
 
-        # Find any existing builder that uses 'docker' as the driver by scanning the output.
-        existing_builder=$(docker buildx ls 2>/dev/null | awk 'tolower($0) ~ /docker/ {print $1; exit}')
+        # Get the first column (NAME/NODE) from the second line onwards (skip header).
+        # Then sanitize: keep only allowed characters [A-Za-z0-9._-], remove trailing '*' etc.
+        existing_builder_raw=$(docker buildx ls 2>/dev/null | sed -n '2,$p' | awk '{print $1; exit}' || true)
+        echo "Raw builder name found: \"$existing_builder_raw\""
+
+        # sanitize - remove any characters not allowed in builder names (only allow letters, digits, dot, underscore, hyphen)
+        existing_builder=$(printf '%s' "$existing_builder_raw" | sed 's/[^A-Za-z0-9._-]//g')
 
         if [ -n "$existing_builder" ]; then
-          echo "Found existing docker-driver builder: $existing_builder — using it"
-          docker buildx use "$existing_builder"
+          echo "Sanitized builder name: \"$existing_builder\""
+          # confirm that this builder is a docker-driver builder (check the line that contains the raw name)
+          # We search for a line that contains the raw name, and check if 'docker' appears on the same line.
+          if docker buildx ls 2>/dev/null | grep -F "$existing_builder_raw" | grep -qi 'docker'; then
+            echo "Found docker-driver builder \"$existing_builder\" — using it"
+            docker buildx use "$existing_builder"
+          else
+            echo "Existing builder \"$existing_builder\" is not docker-driver. Creating hostbuilder..."
+            docker buildx create --name hostbuilder --driver docker --use
+            existing_builder=hostbuilder
+          fi
         else
-          echo "No docker-driver builder found — creating hostbuilder"
+          echo "No valid existing builder name found — creating hostbuilder"
           docker buildx create --name hostbuilder --driver docker --use
           existing_builder=hostbuilder
         fi
 
-        # Bootstrap (ensure builder is ready)
+        echo "Bootstrapping builder: $existing_builder"
         docker buildx inspect --bootstrap "$existing_builder"
+
 
 
     - name: Login to Private Registry
