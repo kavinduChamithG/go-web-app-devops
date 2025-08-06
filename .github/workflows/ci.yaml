@@ -83,16 +83,25 @@ jobs:
     - name: Select or create host buildx builder (robust)
       run: |
         set -euo pipefail
-        existing_builder=$(docker buildx ls --format '{{.Name}} {{.Driver}}' | awk '$2=="docker" {print $1; exit}')
+
+        echo "Listing existing buildx builders for debugging:"
+        docker buildx ls || true
+
+        # Find any existing builder that uses 'docker' as the driver by scanning the output.
+        existing_builder=$(docker buildx ls 2>/dev/null | awk 'tolower($0) ~ /docker/ {print $1; exit}')
+
         if [ -n "$existing_builder" ]; then
-          echo "Using existing docker-driver builder: $existing_builder"
+          echo "Found existing docker-driver builder: $existing_builder — using it"
           docker buildx use "$existing_builder"
         else
-          echo "Creating hostbuilder using docker driver"
+          echo "No docker-driver builder found — creating hostbuilder"
           docker buildx create --name hostbuilder --driver docker --use
           existing_builder=hostbuilder
         fi
+
+        # Bootstrap (ensure builder is ready)
         docker buildx inspect --bootstrap "$existing_builder"
+
 
     - name: Login to Private Registry
       uses: docker/login-action@v3
