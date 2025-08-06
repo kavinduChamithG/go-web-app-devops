@@ -74,11 +74,25 @@ jobs:
         sudo update-ca-certificates || true
         sudo systemctl restart docker
 
-    - name: Create and use host buildx builder
+#    - name: Create and use host buildx builder
+#      run: |
+#        docker buildx rm hostbuilder || true
+#        docker buildx create --name hostbuilder --driver docker --use
+#        docker buildx inspect --bootstrap
+
+    - name: Select or create host buildx builder (robust)
       run: |
-        docker buildx rm hostbuilder || true
-        docker buildx create --name hostbuilder --driver docker --use
-        docker buildx inspect --bootstrap
+        set -euo pipefail
+        existing_builder=$(docker buildx ls --format '{{.Name}} {{.Driver}}' | awk '$2=="docker" {print $1; exit}')
+        if [ -n "$existing_builder" ]; then
+          echo "Using existing docker-driver builder: $existing_builder"
+          docker buildx use "$existing_builder"
+        else
+          echo "Creating hostbuilder using docker driver"
+          docker buildx create --name hostbuilder --driver docker --use
+          existing_builder=hostbuilder
+        fi
+        docker buildx inspect --bootstrap "$existing_builder"
 
     - name: Login to Private Registry
       uses: docker/login-action@v3
